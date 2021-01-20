@@ -1,29 +1,8 @@
 import numpy as np
-import fplib_GD
+import fplib_FD
 import sys
 
-
-def readvasp(vp):
-    buff = []
-    with open(vp) as f:
-        for line in f:
-            buff.append(line.split())
-
-    lat = np.array(buff[2:5], float) 
-    try:
-        typt = np.array(buff[5], int)
-    except:
-        del(buff[5])
-        typt = np.array(buff[5], int)
-    nat = sum(typt)
-    pos = np.array(buff[7:7 + nat], float)
-    types = []
-    for i in range(len(typt)):
-        types += [i+1]*typt[i]
-    types = np.array(types, int)
-    rxyz = np.dot(pos, lat)
-    #rxyz = pos
-    return lat, rxyz, types
+# Move function `readvasp(vp)` from test set to `fplib_FD.py`
 
 def test3(v1, v2):
     ntyp = 1
@@ -31,13 +10,13 @@ def test3(v1, v2):
     lmax = 0
     cutoff = 6.5
     znucl = np.array([3], int)
-    lat1, rxyz1, types = readvasp(v1)
-    lat2, rxyz2, types = readvasp(v2)
+    lat1, rxyz1, types = fplib_FD.readvasp(v1)
+    lat2, rxyz2, types = fplib_FD.readvasp(v2)
     contract = True
-    fp1 = fplib_GD.get_fp(contract, ntyp, nx, lmax, lat1, rxyz1, types, znucl, cutoff)
-    fp2 = fplib_GD.get_fp(contract, ntyp, nx, lmax, lat2, rxyz2, types, znucl, cutoff)
+    fp1 = fplib_FD.get_fp(contract, ntyp, nx, lmax, lat1, rxyz1, types, znucl, cutoff)
+    fp2 = fplib_FD.get_fp(contract, ntyp, nx, lmax, lat2, rxyz2, types, znucl, cutoff)
 
-    dist = fplib_GD.get_fpdist(ntyp, types, fp1, fp2)
+    dist = fplib_FD.get_fpdist(ntyp, types, fp1, fp2)
     print ('fingerprint distance: ', dist)
 
 

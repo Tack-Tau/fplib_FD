@@ -253,8 +253,8 @@ def get_fpd_optimize(v1, v2, iter_max, atol, contract, ntyp, nx, lmax, znucl, cu
     fp2_left = np.zeros((nat2, 3, nfp2, lenfp2))
     fpd_right = np.full((nat2, 3), fpd_init)
     fpd_left = np.full((nat2, 3), fpd_init)
-    step_size = 1e-4
-    d = 1e-8
+    step_size = 1e-8
+    d = 1e-16
     n_iter = 0
     if min( abs( fp_FD.ravel() ) ) >= atol and n_iter <= iter_max:
         n_iter = n_iter + 1
