@@ -239,8 +239,8 @@ def get_rxyz_delta(rxyz):
 
 # @numba.jit()
 def get_fpd_optimize(v1, v2, iter_max, atol, contract, ntyp, nx, lmax, znucl, cutoff):
-    # lat1, rxyz1, types = readvasp(v1)
-    # lat2, rxyz2, types = readvasp(v2)
+    lat1, rxyz1, types = readvasp(v1)
+    lat2, rxyz2, types = readvasp(v2)
     nat2 = len(rxyz2)
     rxyz2_right = rxyz2
     rxyz2_left = rxyz2
@@ -256,11 +256,11 @@ def get_fpd_optimize(v1, v2, iter_max, atol, contract, ntyp, nx, lmax, znucl, cu
     d = 1e-8
     n_iter = 0
     if min( abs( fp_FD.ravel() ) ) >= atol and n_iter <= iter_max:
-    n_iter = n_iter + 1
-    rxyz2_delta = get_rxyz_prime(rxyz2)
-    rxyz2_delta = d*rxyz2_delta
-    rxyz2_plus = np.add(rxyz2, rxyz2_delta)
-    rxyz2_minus = np.subtract(rxyz2, rxyz2_delta)
+        n_iter = n_iter + 1
+        rxyz2_delta = get_rxyz_prime(rxyz2)
+        rxyz2_delta = d*rxyz2_delta
+        rxyz2_plus = np.add(rxyz2, rxyz2_delta)
+        rxyz2_minus = np.subtract(rxyz2, rxyz2_delta)
         for inat2 in range(nat2):
             for x_i in range (3):
                 # Calculate numerical gradient using Finite Difference in high-dimension
