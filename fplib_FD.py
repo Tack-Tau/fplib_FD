@@ -161,8 +161,8 @@ def get_fp(contract, ntyp, nx, lmax, lat, rxyz, types, znucl, cutoff):
             sfp.append(sorted(sfp0))
 
 
-    print ("n_sphere_min", min(n_sphere_list))
-    print ("n_shpere_max", max(n_sphere_list)) 
+    # print ("n_sphere_min", min(n_sphere_list))
+    # print ("n_shpere_max", max(n_sphere_list)) 
 
     if contract:
         sfp = np.array(sfp, float)
