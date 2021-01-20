@@ -1,0 +1,5 @@
+.DS_Store
+.ipynb_checkpoints
+non-convex.py
+__pycache__
+*.pyc
