@@ -226,19 +226,19 @@ def readvasp(vp):
     return lat, rxyz, types
 
 # @numba.jit()
-def get_rxyz_prime(rxyz):
+def get_rxyz_delta(rxyz):
     nat = len(rxyz)
     rxyz_delta = np.random.rand(nat, 3)
     for iat in range(nat):
         r_norm = np.linalg.norm(rxyz_delta[iat])
         rxyz_delta[iat] = np.divide(rxyz_delta[iat], r_norm)
-    rxyz_plus = np.add(rxyz, rxyz_delta)
-    rxyz_minus = np.subtract(rxyz, rxyz_delta)
+    # rxyz_plus = np.add(rxyz, rxyz_delta)
+    # rxyz_minus = np.subtract(rxyz, rxyz_delta)
         
-    return rxyz_plus, rxyz_minus, rxyz_delta
+    return rxyz_delta
 
 # @numba.jit()
-def get_fpd_optimize(v1, v2, iterations, contract, ntyp, nx, lmax, znucl, cutoff):
+def get_fpd_optimize(v1, v2, iter_max, atol, contract, ntyp, nx, lmax, znucl, cutoff):
     # lat1, rxyz1, types = readvasp(v1)
     # lat2, rxyz2, types = readvasp(v2)
     nat2 = len(rxyz2)
@@ -246,28 +246,35 @@ def get_fpd_optimize(v1, v2, iterations, contract, ntyp, nx, lmax, znucl, cutoff
     rxyz2_left = rxyz2
     fp1 = get_fp(contract, ntyp, nx, lmax, lat1, rxyz1, types, znucl, cutoff)
     fp2 = get_fp(contract, ntyp, nx, lmax, lat2, rxyz2, types, znucl, cutoff)
-    fp_FD = np.zeros((nat2, 3))
-    fp2_right = np.zeros((nat2, 3))
-    fp2_left = np.zeros((nat2, 3))
-    fpd_right = np.zeros((nat2, 3))
-    fpd_left = np.zeros((nat2, 3))
-    step_size = 0.0001
-    for i in range(iterations):
-        rxyz2_plus, rxyz2_minus, rxyz2_delta = get_rxyz_prime(rxyz2)
+    FD_init = get_fpdist(ntyp, types, fp1, fp2)
+    fp_FD = np.full((nat2, 3), FD_init)
+    fp2_right = np.full((nat2, 3), fp2)
+    fp2_left = np.full((nat2, 3), fp2)
+    fpd_right = np.full((nat2, 3), FD_init)
+    fpd_left = np.full((nat2, 3), FD_init)
+    step_size = 1e-4
+    d = 1e-8
+    n_iter = 0
+    if min( abs( fp_FD.ravel() ) ) >= atol and n_iter <= iter_max:
+    n_iter = n_iter + 1
+    rxyz2_delta = get_rxyz_prime(rxyz2)
+    rxyz2_delta = d*rxyz2_delta
+    rxyz2_plus = np.add(rxyz2, rxyz2_delta)
+    rxyz2_minus = np.subtract(rxyz2, rxyz2_delta)
         for inat2 in range(nat2):
-            for ixyz in range (3):
+            for x_i in range (3):
                 # Calculate numerical gradient using Finite Difference in high-dimension
-                rxyz2_right[inat2][ixyz] = rxyz2_plus[inat2][ixyz]
-                rxyz2_left[inat2][ixyz] = rxyz2_minus[inat2][ixyz]
-                fp2_right[inat2][ixyz] = get_fp(contract, ntyp, nx, \
+                rxyz2_right[inat2][x_i] = rxyz2_plus[inat2][x_i]
+                rxyz2_left[inat2][x_i] = rxyz2_minus[inat2][x_i]
+                fp2_right[inat2][x_i] = get_fp(contract, ntyp, nx, \
                        lmax, lat2, rxyz2_right, types, znucl, cutoff)
-                fp2_left[inat2][ixyz] = get_fp(contract, ntyp, nx,  \
+                fp2_left[inat2][x_i] = get_fp(contract, ntyp, nx,  \
                        lmax, lat2, rxyz2_left, types, znucl, cutoff)
-                fpd_right[inat2][ixyzs] = get_fpdist(ntyp, types, fp1, fp2_right[inat2][ixyz])
-                fpd_left[inat2][ixyzs] = get_fpdist(ntyp, types, fp1, fp2_left[inat2][ixyz])
-                fp_FD[inat2][ixyzs] = ( fpd_right[inat2][ixyzs] - fpd_left[inat2][ixyzs] ) \
-                                       / 2.0*abs( rxyz2_delta[inat2][ixyz] )
-        # R(x,y,z) matrix update using Gradient Descent method
+                fpd_right[inat2][x_i] = get_fpdist(ntyp, types, fp1, fp2_right[inat2][x_i])
+                fpd_left[inat2][x_i] = get_fpdist(ntyp, types, fp1, fp2_left[inat2][x_i])
+                fp_FD[inat2][x_i] = ( fpd_right[inat2][x_i] - fpd_left[inat2][x_i] ) \
+                                       / 2.0*abs( rxyz2_delta[inat2][x_i] )
+        # R(x,y,z) matrix update using Steepest Descent method
         # At this moment the step size is fixed, but an adaptive step size can be implemented from:
         # https://github.com/yrlu/non-convex
         # https://github.com/tamland/non-linear-optimization

@@ -13,8 +13,9 @@ def test4(v1, v2):
     lat1, rxyz1, types = fplib_FD.readvasp(v1)
     lat2, rxyz2, types = fplib_FD.readvasp(v2)
     contract = False
-    iterations = 100
-    fpd_opt = get_fpd_optimize(v1, v2, iterations, contract, ntyp, nx, lmax, znucl, cutoff)
+    iter_max = 1000
+    atol = 1e-16
+    fpd_opt = get_fpd_optimize(v1, v2, iter_max, atol, contract, ntyp, nx, lmax, znucl, cutoff)
     print ('Optimized fingerprint distance: ', fpd_opt)
 
 
