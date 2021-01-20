@@ -246,18 +246,19 @@ def get_fpd_optimize(v1, v2, iter_max, atol, contract, ntyp, nx, lmax, znucl, cu
     rxyz2_left = rxyz2
     fp1 = get_fp(contract, ntyp, nx, lmax, lat1, rxyz1, types, znucl, cutoff)
     fp2 = get_fp(contract, ntyp, nx, lmax, lat2, rxyz2, types, znucl, cutoff)
-    FD_init = get_fpdist(ntyp, types, fp1, fp2)
-    fp_FD = np.full((nat2, 3), FD_init)
-    fp2_right = np.full((nat2, 3), fp2)
-    fp2_left = np.full((nat2, 3), fp2)
-    fpd_right = np.full((nat2, 3), FD_init)
-    fpd_left = np.full((nat2, 3), FD_init)
+    fpd_init = get_fpdist(ntyp, types, fp1, fp2)
+    nfp2, lenfp2 = np.shape(fp2)
+    fp_FD = np.ones((nat2, 3))
+    fp2_right = np.zeros((nat2, 3, nfp2, lenfp2))
+    fp2_left = np.zeros((nat2, 3, nfp2, lenfp2))
+    fpd_right = np.full((nat2, 3), fpd_init)
+    fpd_left = np.full((nat2, 3), fpd_init)
     step_size = 1e-4
     d = 1e-8
     n_iter = 0
     if min( abs( fp_FD.ravel() ) ) >= atol and n_iter <= iter_max:
         n_iter = n_iter + 1
-        rxyz2_delta = get_rxyz_prime(rxyz2)
+        rxyz2_delta = get_rxyz_delta(rxyz2)
         rxyz2_delta = d*rxyz2_delta
         rxyz2_plus = np.add(rxyz2, rxyz2_delta)
         rxyz2_minus = np.subtract(rxyz2, rxyz2_delta)
@@ -266,12 +267,12 @@ def get_fpd_optimize(v1, v2, iter_max, atol, contract, ntyp, nx, lmax, znucl, cu
                 # Calculate numerical gradient using Finite Difference in high-dimension
                 rxyz2_right[inat2][x_i] = rxyz2_plus[inat2][x_i]
                 rxyz2_left[inat2][x_i] = rxyz2_minus[inat2][x_i]
-                fp2_right[inat2][x_i] = get_fp(contract, ntyp, nx, \
+                fp2_right[inat2, x_i, :, :] = get_fp(contract, ntyp, nx, \
                        lmax, lat2, rxyz2_right, types, znucl, cutoff)
-                fp2_left[inat2][x_i] = get_fp(contract, ntyp, nx,  \
+                fp2_left[inat2, x_i, :, :] = get_fp(contract, ntyp, nx,  \
                        lmax, lat2, rxyz2_left, types, znucl, cutoff)
-                fpd_right[inat2][x_i] = get_fpdist(ntyp, types, fp1, fp2_right[inat2][x_i])
-                fpd_left[inat2][x_i] = get_fpdist(ntyp, types, fp1, fp2_left[inat2][x_i])
+                fpd_right[inat2][x_i] = get_fpdist(ntyp, types, fp1, fp2_right[inat2, x_i, :, :])
+                fpd_left[inat2][x_i] = get_fpdist(ntyp, types, fp1, fp2_left[inat2, x_i, :, :])
                 fp_FD[inat2][x_i] = ( fpd_right[inat2][x_i] - fpd_left[inat2][x_i] ) \
                                        / 2.0*abs( rxyz2_delta[inat2][x_i] )
         # R(x,y,z) matrix update using Steepest Descent method
