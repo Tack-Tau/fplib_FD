@@ -238,28 +238,26 @@ def get_rxyz_delta(rxyz):
     return rxyz_delta
 
 # @numba.jit()
-def get_fpd_optimize(v1, v2, iter_max, rtol, contract, ntyp, nx, lmax, znucl, cutoff):
+def get_fpd_optimize(v1, v2, iter_max, atol, contract, ntyp, nx, lmax, znucl, cutoff):
     lat1, rxyz1, types = readvasp(v1)
     lat2, rxyz2, types = readvasp(v2)
     nat2 = len(rxyz2)
-    rxyz2_right = rxyz2
-    rxyz2_left = rxyz2
+    rxyz2_right = rxyz2.copy()
+    rxyz2_left = rxyz2.copy()
     fp1 = get_fp(contract, ntyp, nx, lmax, lat1, rxyz1, types, znucl, cutoff)
     fp2 = get_fp(contract, ntyp, nx, lmax, lat2, rxyz2, types, znucl, cutoff)
     fpd_init = get_fpdist(ntyp, types, fp1, fp2)
+    print ('fpd_init', fpd_init)
     nfp2, lenfp2 = np.shape(fp2)
-    fp_FD = np.zeros((nat2, 3))
+    fp_FD = np.ones((nat2, 3))
     fp2_right = np.zeros((nat2, 3, nfp2, lenfp2))
     fp2_left = np.zeros((nat2, 3, nfp2, lenfp2))
     fpd_right = np.full((nat2, 3), fpd_init)
     fpd_left = np.full((nat2, 3), fpd_init)
-    delta_fpd_right = np.ones((nat2, 3))
-    delta_fpd_left = np.ones((nat2, 3))
-    step_size = 1e-16
-    d = 1e-16
+    step_size = 1e-4
+    d = 1e-8
     n_iter = 0
-    if min( min( abs( delta_fpd_right.ravel() ) ), \
-           min( abs( delta_fpd_left.ravel() ) ) ) >= rtol and n_iter <= iter_max:
+    while min( abs( fp_FD.ravel() ) ) >= atol and n_iter <= iter_max:
         n_iter = n_iter + 1
         rxyz2_delta = get_rxyz_delta(rxyz2)
         rxyz2_delta = d*rxyz2_delta
@@ -268,18 +266,14 @@ def get_fpd_optimize(v1, v2, iter_max, rtol, contract, ntyp, nx, lmax, znucl, cu
         for inat2 in range(nat2):
             for x_i in range (3):
                 # Calculate numerical gradient using Finite Difference in high-dimension
-                # rxyz2_right[inat2][x_i] = rxyz2_plus[inat2][x_i]
-                # rxyz2_left[inat2][x_i] = rxyz2_minus[inat2][x_i]
-                rxyz2_right = rxyz2_plus
-                rxyz2_left = rxyz2_minus
+                rxyz2_right[inat2][x_i] = rxyz2_plus[inat2][x_i]
+                rxyz2_left[inat2][x_i] = rxyz2_minus[inat2][x_i]
                 fp2_right[inat2, x_i, :, :] = get_fp(contract, ntyp, nx, \
                        lmax, lat2, rxyz2_right, types, znucl, cutoff)
                 fp2_left[inat2, x_i, :, :] = get_fp(contract, ntyp, nx,  \
                        lmax, lat2, rxyz2_left, types, znucl, cutoff)
                 fpd_right[inat2][x_i] = get_fpdist(ntyp, types, fp1, fp2_right[inat2, x_i, :, :])
                 fpd_left[inat2][x_i] = get_fpdist(ntyp, types, fp1, fp2_left[inat2, x_i, :, :])
-                delta_fpd_right[inat2][x_i] = (fpd_right[inat2][x_i] - fpd_init) / fpd_init
-                delta_fpd_left[inat2][x_i] = (fpd_left[inat2][x_i] - fpd_init) / fpd_init
                 fp_FD[inat2][x_i] = ( fpd_right[inat2][x_i] - fpd_left[inat2][x_i] ) \
                                        / 2.0*abs( rxyz2_delta[inat2][x_i] )
         # R(x,y,z) matrix update using Steepest Descent method
@@ -287,16 +281,83 @@ def get_fpd_optimize(v1, v2, iter_max, rtol, contract, ntyp, nx, lmax, znucl, cu
         # https://github.com/yrlu/non-convex
         # https://github.com/tamland/non-linear-optimization
         rxyz2 = np.subtract(rxyz2, step_size * fp_FD)
-        fp1 = get_fp(contract, ntyp, nx, lmax, lat1, rxyz1, types, znucl, cutoff)
-        fp2 = get_fp(contract, ntyp, nx, lmax, lat2, rxyz2, types, znucl, cutoff)
-        fpd_init = get_fpdist(ntyp, types, fp1, fp2)
-        
+    
     fp1 = get_fp(contract, ntyp, nx, lmax, lat1, rxyz1, types, znucl, cutoff)
     fp2 = get_fp(contract, ntyp, nx, lmax, lat2, rxyz2, types, znucl, cutoff)
     fpd_opt = get_fpdist(ntyp, types, fp1, fp2)
     return fpd_opt
     
     
+def gd(v1, v2, iter_max, atol, contract, ntyp, nx, lmax, znucl, cutoff):
+    lat1, rxyz1, types = readvasp(v1)
+    lat2, rxyz2, types = readvasp(v2)
+    print (rxyz1 - rxyz2)
+    nat = len(rxyz2)
+    rxyz2_right = rxyz2
+    rxyz2_left = rxyz2
+    fp1 = get_fp(contract, ntyp, nx, lmax, lat1, rxyz1, types, znucl, cutoff)
+    fp2 = get_fp(contract, ntyp, nx, lmax, lat2, rxyz2, types, znucl, cutoff)
+    fpd_init = get_fpdist(ntyp, types, fp1, fp2)
+    print ('fpd_init', fpd_init)
+
+    # dx = np.random.random((nat, 3))/10
+
+    step_size = 0.03
+    n_iter = 0
+    dg = min_grad(nat, fp1, rxyz2, lat2, types, znucl, cutoff, contract, ntyp, nx, lmax)
+    nrxyz = rxyz2.copy()
+    fpdn = fpd_init
+   
+    while fpdn >= atol and n_iter <= iter_max:
+        n_iter += 1
+        nrxyz = nrxyz + dg*step_size
+        nrxyz = checkdist(rxyz2, nrxyz)
+        fpn = get_fp(contract, ntyp, nx, lmax, lat2, nrxyz, types, znucl, cutoff)
+        fpdn = get_fpdist(ntyp, types, fp1, fpn)
+        dg = min_grad(nat, fp1, nrxyz, lat2, types, znucl, cutoff, contract, ntyp, nx, lmax)
+        # print (dg)
+        print (n_iter, fpdn)
+    print (nrxyz)
+    return fpdn
+
+
+def min_grad(nat, fp0, rxyz, lat, types, znucl, cutoff, contract, ntyp, nx, lmax):
+    dgg = []
+    for i in range(10):
+        dx = np.random.random((nat, 3))/100
+        dg, fpd = get_grad(dx, fp0, rxyz, lat, types, znucl, cutoff, contract, ntyp, nx, lmax)
+        dgg.append((dg, fpd))
+    sortdgg = sorted(dgg, key = lambda x:x[1])
+    return sortdgg[0][0]
+
+
+
+def get_grad(dx, fp0, rxyz, lat, types, znucl, cutoff, contract, ntyp, nx, lmax):
+
+    rxyz_left = rxyz - dx
+    rxyz_right = rxyz + dx
+    # fp =  get_fp(contract, ntyp, nx, lmax, lat, rxyz, types, znucl, cutoff)
+    fp_left = get_fp(contract, ntyp, nx, lmax, lat, rxyz_left, types, znucl, cutoff)
+    fp_right = get_fp(contract, ntyp, nx, lmax, lat, rxyz_right, types, znucl, cutoff)
+    fpd_left = get_fpdist(ntyp, types, fp0, fp_left)
+    fpd_right = get_fpdist(ntyp, types, fp0, fp_right)
+    # print ('lf', fpd_left, fpd_right)
+    fpd = fpd_right - fpd_left
+    dg = fpd / (2*dx)
+    for i in range(len(dg)):
+        dg[i] = dg[i]/np.sqrt(np.dot(dg[i], dg[i]))
+    return dg, fpd
+
+def checkdist(rxyz0, rxyz):
+    rxyz1 = rxyz.copy()
+    for i in range(len(rxyz1)):
+        d = rxyz0[i] - rxyz1[i]
+        dist = np.sqrt(np.dot(d, d))
+        if dist > 1.0:
+            xd = 1.0/dist
+            rxyz1[i] = rxyz0[i] - d*xd
+            # print ('dist', dist)
+    return rxyz1
 
 
 
